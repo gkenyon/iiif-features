@@ -16,10 +16,10 @@
 
 <body>
 
-<div class="parallaxer js-parallaxer">
-</div>
+<div class="parallaxer js-parallaxer"></div>
 
 <script src="img/manifesto.bundle.js"></script>
+<script src="img/openseadragon.min.js"></script>
 <script type="text/javascript">
 function getComputed(el,style){ if(window.getComputedStyle){ var y=document.defaultView.getComputedStyle(el,null).getPropertyValue(style); }else if(el.currentStyle){ if( style=='width' ){ y=el.getBoundingClientRect().right-el.getBoundingClientRect().left }else if( style=='height' ){ y=el.getBoundingClientRect().bottom-el.getBoundingClientRect().top }else{ var y=el.currentStyle[style] } } return parseFloat(y); }
 function getEventXY (e) {
@@ -39,9 +39,7 @@ function getEventXY (e) {
   return xy;
 }
 
-const parallaxer = document.querySelector(".js-parallaxer");
-
-const painter = {
+const viewer = {
   id: 1,
   size: (el) => {
     el.wh = [parseInt(getComputed(el,'width')), Math.ceil(getComputed(el,'height'))];
@@ -53,7 +51,11 @@ const painter = {
     el.xlate = [0, 0];
     el.pinchDelta = 0;
     if (!el.paint) {
-      el.id = el.id || 'parallaxer' + painter.id++;
+      el.id = el.id || 'viewer' + viewer.id++;
+      el.osd = OpenSeadragon({
+        id: el.id,
+        prefixUrl: "https://openseadragon.github.io/openseadragon/images/"
+      });
       el.css = el.parentNode.insertBefore(document.createElement('style'), el);
       el.paint = () => {
         let css = '';
@@ -76,15 +78,15 @@ const painter = {
           el.scale = 10;
         }
       };
-      el.paint();
-      el.onmousemove = painter.touch.bind(null, el);
-      el.onwheel = painter.touch.bind(null, el);
-      el.ontouchmove = painter.touch.bind(null, el);
+      //~ el.paint();
+      //~ el.onmousemove = viewer.touch.bind(null, el);
+      //~ el.onwheel = viewer.touch.bind(null, el);
+      //~ el.ontouchmove = viewer.touch.bind(null, el);
     }
   },
   touch: (el, e) => {
     const xyE = getEventXY(e);
-    if (!el.w) { painter.size(el); }
+    if (!el.w) { viewer.size(el); }
     if (e.type === 'wheel'){
       el.zoom(e.deltaY > 0 ? -1 : 1);
     } else {
@@ -102,8 +104,11 @@ const painter = {
   }
 };
 
+const parallaxer = document.querySelector(".js-parallaxer");
+
 const qstr = new Map(location.search.slice(1).split('&').map(kv => kv.split('=')));
-let m = 'https://iiif.vam.ac.uk/demos/peepshow/manifest.json';
+//~ let m = 'https://iiif.vam.ac.uk/demos/peepshow/manifest.json';
+let m = 'https://iiif.vam.ac.uk/collections/MSL:1876:Forster:141:I/manifest.json';
 
 if (!qstr.has('manifest')) {
   document.location.search = 'manifest=' + m;
@@ -111,17 +116,21 @@ if (!qstr.has('manifest')) {
   m = qstr.get('manifest');
 }
 manifesto.loadManifest(m).then((manifest) => {
-  parallaxer.innerHTML = '';
   const mf = manifesto.create(manifest);
   const cvs = mf.getSequences()[0].getCanvases();
+  viewer.init(parallaxer);
+  i=0;//~ limit for testing
   Array.from(cvs, (cv) => {
-    const im = parallaxer.appendChild(document.createElement('img'));
-    if (cv.getImages().length) {
-      im.src = cv.getImages()[0].getResource().id;
-    } else if (cv.getContent().length) {
-      im.src = cv.getContent()[0].getBody()[0].id;
-    }
-    painter.init(parallaxer);
+    if(++i>2) return;//~ limit for testing
+    parallaxer.osd.addTiledImage({
+      tileSource: `${cv.getContent()[0].getBody()[0].getServices()[0].id}/info.json`,
+      tileFormat: 'png'
+    });
+    //~ if (cv.getImages().length) {
+      //~ im.src = cv.getImages()[0].getResource().id;
+    //~ } else if (cv.getContent().length) {
+      //~ im.src = cv.getContent()[0].getBody()[0].id;
+    //~ }
   });
 });
 </script>
